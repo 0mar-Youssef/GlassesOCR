@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Privacy usage descriptions -->
+	<key>NSCameraUsageDescription</key>
+	<string>Used to capture frames from Meta smart glasses.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Used for audio input from Meta smart glasses.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Needed to connect to Meta Wearables.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Used to communicate with Meta smart glasses over local network.</string>
+	
+	<!-- Configure custom URL scheme for Meta AI callbacks -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>glassesocr</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Allow Meta AI (fb-viewapp) to call the app -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>fb-viewapp</string>
+	</array>
+	
+	<!-- External Accessory protocol for Meta Wearables -->
+	<key>UISupportedExternalAccessoryProtocols</key>
+	<array>
+		<string>com.meta.ar.wearable</string>
+	</array>
+	
+	<!-- Background modes for Bluetooth and external accessories -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-peripheral</string>
+		<string>external-accessory</string>
+	</array>
+	
+	<!-- Wearables Device Access Toolkit configuration -->
+	<key>MWDAT</key>
+	<dict>
+		<key>AppLinkURLScheme</key>
+		<string>glassesocr://</string>
+		<key>MetaAppID</key>
+		<string>0</string>
+	</dict>
+</dict>
+</plist>

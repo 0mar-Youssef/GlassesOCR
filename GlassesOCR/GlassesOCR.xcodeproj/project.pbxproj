@@ -1,0 +1,700 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		895941092EFE166200EED7A9 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = 895941082EFE166200EED7A9 /* MWDATCamera */; };
+		8967AA7E2EFCB99D00516AAC /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8967AA7D2EFCB99D00516AAC /* MWDATCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		89266ED02EFCA82F009BC856 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 89266EB62EFCA82D009BC856 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 89266EBD2EFCA82D009BC856;
+			remoteInfo = GlassesOCR;
+		};
+		89266EDA2EFCA82F009BC856 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 89266EB62EFCA82D009BC856 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 89266EBD2EFCA82D009BC856;
+			remoteInfo = GlassesOCR;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8959410A2EFE177900EED7A9 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		89266EBE2EFCA82D009BC856 /* GlassesOCR.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GlassesOCR.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		89266ECF2EFCA82F009BC856 /* GlassesOCRTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GlassesOCRTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		89266ED92EFCA82F009BC856 /* GlassesOCRUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GlassesOCRUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		89E845BB2F003EF3007D9DD2 /* Exceptions for "GlassesOCRTests" folder in "GlassesOCRTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 89266ECE2EFCA82F009BC856 /* GlassesOCRTests */;
+		};
+		89E845BE2F004202007D9DD2 /* Exceptions for "GlassesOCR" folder in "GlassesOCR" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 89266EBD2EFCA82D009BC856 /* GlassesOCR */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		89266EC02EFCA82D009BC856 /* GlassesOCR */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				89E845BE2F004202007D9DD2 /* Exceptions for "GlassesOCR" folder in "GlassesOCR" target */,
+			);
+			path = GlassesOCR;
+			sourceTree = "<group>";
+		};
+		89266ED22EFCA82F009BC856 /* GlassesOCRTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				89E845BB2F003EF3007D9DD2 /* Exceptions for "GlassesOCRTests" folder in "GlassesOCRTests" target */,
+			);
+			path = GlassesOCRTests;
+			sourceTree = "<group>";
+		};
+		89266EDC2EFCA82F009BC856 /* GlassesOCRUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = GlassesOCRUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		89266EBB2EFCA82D009BC856 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8967AA7E2EFCB99D00516AAC /* MWDATCore in Frameworks */,
+				895941092EFE166200EED7A9 /* MWDATCamera in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		89266ECC2EFCA82F009BC856 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		89266ED62EFCA82F009BC856 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		89266EB52EFCA82D009BC856 = {
+			isa = PBXGroup;
+			children = (
+				89266EC02EFCA82D009BC856 /* GlassesOCR */,
+				89266ED22EFCA82F009BC856 /* GlassesOCRTests */,
+				89266EDC2EFCA82F009BC856 /* GlassesOCRUITests */,
+				8967AA7C2EFCB99D00516AAC /* Frameworks */,
+				89266EBF2EFCA82D009BC856 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		89266EBF2EFCA82D009BC856 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				89266EBE2EFCA82D009BC856 /* GlassesOCR.app */,
+				89266ECF2EFCA82F009BC856 /* GlassesOCRTests.xctest */,
+				89266ED92EFCA82F009BC856 /* GlassesOCRUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8967AA7C2EFCB99D00516AAC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		89266EBD2EFCA82D009BC856 /* GlassesOCR */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 89266EE32EFCA82F009BC856 /* Build configuration list for PBXNativeTarget "GlassesOCR" */;
+			buildPhases = (
+				89266EBA2EFCA82D009BC856 /* Sources */,
+				89266EBB2EFCA82D009BC856 /* Frameworks */,
+				89266EBC2EFCA82D009BC856 /* Resources */,
+				8959410A2EFE177900EED7A9 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				89266EC02EFCA82D009BC856 /* GlassesOCR */,
+			);
+			name = GlassesOCR;
+			packageProductDependencies = (
+				8967AA7D2EFCB99D00516AAC /* MWDATCore */,
+				895941082EFE166200EED7A9 /* MWDATCamera */,
+			);
+			productName = GlassesOCR;
+			productReference = 89266EBE2EFCA82D009BC856 /* GlassesOCR.app */;
+			productType = "com.apple.product-type.application";
+		};
+		89266ECE2EFCA82F009BC856 /* GlassesOCRTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 89266EE62EFCA82F009BC856 /* Build configuration list for PBXNativeTarget "GlassesOCRTests" */;
+			buildPhases = (
+				89266ECB2EFCA82F009BC856 /* Sources */,
+				89266ECC2EFCA82F009BC856 /* Frameworks */,
+				89266ECD2EFCA82F009BC856 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				89266ED12EFCA82F009BC856 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				89266ED22EFCA82F009BC856 /* GlassesOCRTests */,
+			);
+			name = GlassesOCRTests;
+			packageProductDependencies = (
+			);
+			productName = GlassesOCRTests;
+			productReference = 89266ECF2EFCA82F009BC856 /* GlassesOCRTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		89266ED82EFCA82F009BC856 /* GlassesOCRUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 89266EE92EFCA82F009BC856 /* Build configuration list for PBXNativeTarget "GlassesOCRUITests" */;
+			buildPhases = (
+				89266ED52EFCA82F009BC856 /* Sources */,
+				89266ED62EFCA82F009BC856 /* Frameworks */,
+				89266ED72EFCA82F009BC856 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				89266EDB2EFCA82F009BC856 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				89266EDC2EFCA82F009BC856 /* GlassesOCRUITests */,
+			);
+			name = GlassesOCRUITests;
+			packageProductDependencies = (
+			);
+			productName = GlassesOCRUITests;
+			productReference = 89266ED92EFCA82F009BC856 /* GlassesOCRUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		89266EB62EFCA82D009BC856 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1620;
+				LastUpgradeCheck = 1620;
+				TargetAttributes = {
+					89266EBD2EFCA82D009BC856 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					89266ECE2EFCA82F009BC856 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 89266EBD2EFCA82D009BC856;
+					};
+					89266ED82EFCA82F009BC856 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 89266EBD2EFCA82D009BC856;
+					};
+				};
+			};
+			buildConfigurationList = 89266EB92EFCA82D009BC856 /* Build configuration list for PBXProject "GlassesOCR" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 89266EB52EFCA82D009BC856;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				89266EEC2EFCA8C8009BC856 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 89266EBF2EFCA82D009BC856 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				89266EBD2EFCA82D009BC856 /* GlassesOCR */,
+				89266ECE2EFCA82F009BC856 /* GlassesOCRTests */,
+				89266ED82EFCA82F009BC856 /* GlassesOCRUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		89266EBC2EFCA82D009BC856 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		89266ECD2EFCA82F009BC856 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		89266ED72EFCA82F009BC856 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		89266EBA2EFCA82D009BC856 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		89266ECB2EFCA82F009BC856 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		89266ED52EFCA82F009BC856 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		89266ED12EFCA82F009BC856 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 89266EBD2EFCA82D009BC856 /* GlassesOCR */;
+			targetProxy = 89266ED02EFCA82F009BC856 /* PBXContainerItemProxy */;
+		};
+		89266EDB2EFCA82F009BC856 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 89266EBD2EFCA82D009BC856 /* GlassesOCR */;
+			targetProxy = 89266EDA2EFCA82F009BC856 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		89266EE12EFCA82F009BC856 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		89266EE22EFCA82F009BC856 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		89266EE42EFCA82F009BC856 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = GlassesOCR/GlassesOCR.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"GlassesOCR/Preview Content\"";
+				DEVELOPMENT_TEAM = DU8RWP3W7L;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GlassesOCR/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Required to connect to Meta smart glasses.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Required to capture frames from Meta smart glasses.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Required for audio features with Meta smart glasses.";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.omaryoussef.GlassesOCR;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Debug;
+		};
+		89266EE52EFCA82F009BC856 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = GlassesOCR/GlassesOCR.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"GlassesOCR/Preview Content\"";
+				DEVELOPMENT_TEAM = DU8RWP3W7L;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GlassesOCR/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Required to connect to Meta smart glasses.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Required to capture frames from Meta smart glasses.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Required for audio features with Meta smart glasses.";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.omaryoussef.GlassesOCR;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Release;
+		};
+		89266EE72EFCA82F009BC856 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DU8RWP3W7L;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GlassesOCRTests/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.omaryoussef.GlassesOCRTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GlassesOCR.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GlassesOCR";
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Debug;
+		};
+		89266EE82EFCA82F009BC856 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DU8RWP3W7L;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GlassesOCRTests/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.omaryoussef.GlassesOCRTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GlassesOCR.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GlassesOCR";
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Release;
+		};
+		89266EEA2EFCA82F009BC856 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DU8RWP3W7L;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.omaryoussef.GlassesOCRUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = GlassesOCR;
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Debug;
+		};
+		89266EEB2EFCA82F009BC856 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DU8RWP3W7L;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.omaryoussef.GlassesOCRUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = GlassesOCR;
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		89266EB92EFCA82D009BC856 /* Build configuration list for PBXProject "GlassesOCR" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				89266EE12EFCA82F009BC856 /* Debug */,
+				89266EE22EFCA82F009BC856 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		89266EE32EFCA82F009BC856 /* Build configuration list for PBXNativeTarget "GlassesOCR" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				89266EE42EFCA82F009BC856 /* Debug */,
+				89266EE52EFCA82F009BC856 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		89266EE62EFCA82F009BC856 /* Build configuration list for PBXNativeTarget "GlassesOCRTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				89266EE72EFCA82F009BC856 /* Debug */,
+				89266EE82EFCA82F009BC856 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		89266EE92EFCA82F009BC856 /* Build configuration list for PBXNativeTarget "GlassesOCRUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				89266EEA2EFCA82F009BC856 /* Debug */,
+				89266EEB2EFCA82F009BC856 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		89266EEC2EFCA8C8009BC856 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/meta-wearables-dat-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		895941082EFE166200EED7A9 /* MWDATCamera */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 89266EEC2EFCA8C8009BC856 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCamera;
+		};
+		8967AA7D2EFCB99D00516AAC /* MWDATCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 89266EEC2EFCA8C8009BC856 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 89266EB62EFCA82D009BC856 /* Project object */;
+}
