@@ -174,8 +174,8 @@ final class SheetsClient: Sendable {
             let accessToken = try await getAccessToken()
             return await sendToSheets(payload: payload, accessToken: accessToken)
         } catch let error as SheetsClientError {
-            print("[SheetsClient] ❌ \(error.localizedDescription ?? "Unknown error")")
-            return .error(error.localizedDescription ?? "Unknown error")
+            print("[SheetsClient] ❌ \(error.localizedDescription)")
+            return .error(error.localizedDescription)
         } catch {
             print("[SheetsClient] ❌ Unexpected error: \(error)")
             return .error(error.localizedDescription)
@@ -320,7 +320,7 @@ final class SheetsClient: Sendable {
     /// Extracts raw key data from PEM format
     private func extractPrivateKeyData(from pem: String) throws -> Data {
         // Remove PEM headers and whitespace
-        var key = pem
+        let key = pem
             .replacingOccurrences(of: "-----BEGIN PRIVATE KEY-----", with: "")
             .replacingOccurrences(of: "-----END PRIVATE KEY-----", with: "")
             .replacingOccurrences(of: "-----BEGIN RSA PRIVATE KEY-----", with: "")

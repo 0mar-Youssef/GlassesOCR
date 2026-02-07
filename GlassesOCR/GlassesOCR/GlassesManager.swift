@@ -62,41 +62,34 @@ class GlassesManager: ObservableObject {
         registrationObserverTask = Task { [weak self] in
             guard let self = self else { return }
             
-            do {
-                // This loop runs FOREVER, reacting to state changes
-                for try await state in self.wearables.registrationStateStream() {
-                    guard !Task.isCancelled else { break }
-                    
-                    print("[GlassesManager] 📡 Registration state changed: \(state)")
-                    
-                    // Update connection state based on registration state
-                    await MainActor.run {
-                        // Convert to string to check the state
-                        let stateString = String(describing: state)
-                        print("[GlassesManager] 🔍 State string: \(stateString)")
-                        
-                        // Check for rawValue in the string
-                        if stateString.contains("rawValue: 3") {
-                            self.connectionState = .registered
-                            self.errorMessage = nil
-                            print("[GlassesManager] ✅ Registration complete (rawValue: 3)")
-                        } else if stateString.contains("rawValue: 0") {
-                            if self.connectionState != .connecting {
-                                self.connectionState = .disconnected
-                                print("[GlassesManager] 📵 Not registered (rawValue: 0)")
-                            }
-                        } else if stateString.contains("rawValue: 1") || stateString.contains("rawValue: 2") {
-                            self.connectionState = .connecting
-                            print("[GlassesManager] ⏳ Registration in progress (rawValue: 1 or 2)")
-                        } else {
-                            print("[GlassesManager] ⚠️ Unknown state: \(stateString)")
-                        }
-                    }
-                }
-            } catch {
-                print("[GlassesManager] ❌ Registration observer error: \(error)")
+            // This loop runs FOREVER, reacting to state changes
+            for await state in self.wearables.registrationStateStream() {
+                guard !Task.isCancelled else { break }
+                
+                print("[GlassesManager] 📡 Registration state changed: \(state)")
+                
+                // Update connection state based on registration state
                 await MainActor.run {
-                    self.errorMessage = "Registration observer failed: \(error.localizedDescription)"
+                    // Convert to string to check the state
+                    let stateString = String(describing: state)
+                    print("[GlassesManager] 🔍 State string: \(stateString)")
+                    
+                    // Check for rawValue in the string
+                    if stateString.contains("rawValue: 3") {
+                        self.connectionState = .registered
+                        self.errorMessage = nil
+                        print("[GlassesManager] ✅ Registration complete (rawValue: 3)")
+                    } else if stateString.contains("rawValue: 0") {
+                        if self.connectionState != .connecting {
+                            self.connectionState = .disconnected
+                            print("[GlassesManager] 📵 Not registered (rawValue: 0)")
+                        }
+                    } else if stateString.contains("rawValue: 1") || stateString.contains("rawValue: 2") {
+                        self.connectionState = .connecting
+                        print("[GlassesManager] ⏳ Registration in progress (rawValue: 1 or 2)")
+                    } else {
+                        print("[GlassesManager] ⚠️ Unknown state: \(stateString)")
+                    }
                 }
             }
         }
@@ -186,6 +179,14 @@ class GlassesManager: ObservableObject {
                         self.streamingState = .stopped
                         print("[GlassesManager] ⏹️ Stream stopped")
                         
+                    case .waitingForDevice:
+                        self.streamingState = .starting
+                        print("[GlassesManager] ⏳ Waiting for device")
+                        
+                    case .paused:
+                        self.streamingState = .stopped
+                        print("[GlassesManager] ⏸️ Stream paused")
+                        
                     @unknown default:
                         // Log unknown states but don't treat as error
                         print("[GlassesManager] ⚠️ Unknown stream state: \(state)")
@@ -212,7 +213,7 @@ class GlassesManager: ObservableObject {
                 // Yield to continuation
                 continuation?.yield(pixelBuffer)
             }
-            try await session.start()
+            await session.start()
         } catch {
             errorMessage = "Streaming failed: \(error)"
             streamingState = .error
@@ -220,14 +221,9 @@ class GlassesManager: ObservableObject {
     }
 
     func stopStreaming() async {
-        do {
-            try await streamSession?.stop()
-        } catch {
-            print("[GlassesManager] Error stopping stream: \(error)")
-        }
+        await streamSession?.stop()
         stateListenerToken = nil
         frameListenerToken = nil
-        frameContinuation?.finish()
         streamSession = nil
         streamingState = .stopped
     }

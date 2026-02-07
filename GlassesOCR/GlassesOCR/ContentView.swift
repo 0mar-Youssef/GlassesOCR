@@ -21,6 +21,9 @@ final class AppState: ObservableObject {
     nonisolated let ocrPipeline = OcrPipeline()
     nonisolated let parser = Parser()
     nonisolated let sheetsClient = SheetsClient()
+    nonisolated let candleDetector = CandleChartDetector()
+    nonisolated let candleExtractor = CandleChartExtractor()
+    nonisolated let candleGate = CandleGate()
 
     // MARK: Published State
 
@@ -28,11 +31,13 @@ final class AppState: ObservableObject {
     @Published var isRunning: Bool = false
     @Published var lastObservation: StockObservation?
     @Published var lastCandleObject: CandleObject?
+    @Published var lastCandleTimestamp: Date?
     @Published var lastLogResult: String = "—"
     @Published var frameCount: Int = 0
     @Published var chartConfidence: Double = 0
     @Published var isCandleChartInView: Bool = false
     @Published var chartReason: String = ""
+    @Published var frameIntervalSeconds: Double = 1.0
 
     var sessions: [SessionBucket] { sessionTracker.sessions }
     var activeSession: SessionBucket? { sessionTracker.activeSession }
@@ -41,7 +46,6 @@ final class AppState: ObservableObject {
 
     private var frameProcessingTask: Task<Void, Never>?
     private var lastFrameTime: Date = .distantPast
-    static let frameIntervalSeconds: TimeInterval = 2.0
 
     // MARK: Computed Properties
 
@@ -105,8 +109,14 @@ final class AppState: ObservableObject {
                 guard !Task.isCancelled else { break }
 
                 let now = Date()
-                guard now.timeIntervalSince(self.lastFrameTime) >= Self.frameIntervalSeconds else { continue }
-                self.lastFrameTime = now
+                let shouldProcess = await MainActor.run { () -> Bool in
+                    if now.timeIntervalSince(self.lastFrameTime) >= self.frameIntervalSeconds {
+                        self.lastFrameTime = now
+                        return true
+                    }
+                    return false
+                }
+                guard shouldProcess else { continue }
                 nonisolated(unsafe) let capturedBuffer = buffer
 
                 await MainActor.run { self.frameCount += 1 }
@@ -114,24 +124,41 @@ final class AppState: ObservableObject {
                 let ocrResult = await self.ocrPipeline.recognizeText(in: capturedBuffer)
                 guard !ocrResult.recognizedText.isEmpty else { continue }
 
-                let chartResult = self.parser.parseCandleChart(ocrResult: ocrResult)
+                let detection = self.candleDetector.detect(ocrResult: ocrResult)
                 await MainActor.run {
-                    self.chartConfidence = chartResult.confidence
-                    self.isCandleChartInView = chartResult.isCandleChart
-                    self.chartReason = chartResult.reason
+                    self.chartConfidence = detection.confidence
+                    self.isCandleChartInView = detection.isCandleChart
+                    self.chartReason = detection.reason
                 }
 
-                guard chartResult.isCandleChart else {
+                guard detection.isCandleChart, let context = detection.context else {
+                    await self.candleGate.reset()
                     await MainActor.run {
-                        self.lastLogResult = "No chart detected (\(chartResult.reason))"
+                        self.lastLogResult = "No chart detected (\(detection.reason))"
                     }
                     continue
                 }
 
-                if let candle = chartResult.candle {
+                let extraction = self.candleExtractor.extract(from: context, confidence: detection.confidence)
+                if let candle = extraction.candle {
+                    let gateResult = await self.candleGate.process(candle)
                     await MainActor.run {
-                        self.lastCandleObject = candle
-                        self.sessionTracker.record(candle)
+                        self.chartReason = gateResult.reason
+                    }
+                    if gateResult.status == .accepted, let gated = gateResult.candle {
+                        await MainActor.run {
+                            self.lastCandleObject = gated
+                            self.lastCandleTimestamp = gated.timestamp
+                            self.sessionTracker.record(gated)
+                        }
+                    } else {
+                        await MainActor.run {
+                            self.lastLogResult = gateResult.reason
+                        }
+                    }
+                } else {
+                    await MainActor.run {
+                        self.lastLogResult = extraction.reason
                     }
                 }
 
@@ -140,7 +167,7 @@ final class AppState: ObservableObject {
                         self.lastObservation = observation
                     }
 
-                    let result = await self.sheetsClient.log(observation, dryRun: await self.isDryRun)
+                    let result = await self.sheetsClient.log(observation, dryRun: self.isDryRun)
                     await MainActor.run {
                         switch result {
                         case .success:
@@ -176,6 +203,10 @@ struct ContentView: View {
                     statusRow(label: "Frames", value: "\(appState.frameCount)", tint: .secondary)
                     statusRow(label: "Candlestick", value: appState.isCandleChartInView ? "Detected" : "Not in view", tint: appState.isCandleChartInView ? .green : .secondary)
                     statusRow(label: "Confidence", value: String(format: "%.0f%%", appState.chartConfidence * 100), tint: .secondary)
+                    statusRow(label: "Sampling", value: formatInterval(appState.frameIntervalSeconds), tint: .secondary)
+                    if let lastSeen = appState.lastCandleTimestamp {
+                        statusRow(label: "Last Candle", value: formatClock(lastSeen), tint: .secondary)
+                    }
                     if !appState.chartReason.isEmpty {
                         Text(appState.chartReason)
                             .font(.caption)
@@ -195,6 +226,7 @@ struct ContentView: View {
                         statusRow(label: "App", value: candle.sourceApp ?? "Unknown", tint: .secondary)
                         statusRow(label: "Price Range", value: formatPriceRange(candle), tint: .primary)
                         statusRow(label: "Time Range", value: formatTimeRange(candle), tint: .secondary)
+                        statusRow(label: "Date Range", value: formatDateRange(candle), tint: .secondary)
                         statusRow(label: "Trajectory", value: candle.trajectory.rawValue.capitalized, tint: .primary)
                     } else {
                         Text("No candle extraction yet")
@@ -252,6 +284,16 @@ struct ContentView: View {
                 }
 
                 Section("Controls") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Sampling Interval")
+                        Picker("Sampling Interval", selection: $appState.frameIntervalSeconds) {
+                            Text("0.5s").tag(0.5)
+                            Text("1s").tag(1.0)
+                            Text("2s").tag(2.0)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
                     Toggle(isOn: $appState.isDryRun) {
                         VStack(alignment: .leading) {
                             Text("Dry Run Mode")
@@ -324,11 +366,22 @@ struct ContentView: View {
         return "Unknown"
     }
 
+    private func formatDateRange(_ candle: CandleObject) -> String {
+        if let start = candle.visibleDateStart, let end = candle.visibleDateEnd { return "\(start) → \(end)" }
+        if let start = candle.visibleDateStart { return start }
+        return "Unknown"
+    }
+
     private func formatClock(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    private func formatInterval(_ value: Double) -> String {
+        let fps = value > 0 ? Int(round(1.0 / value)) : 0
+        return String(format: "%.1fs (~%d fps)", value, fps)
     }
 }
 
@@ -360,6 +413,11 @@ private struct SessionDetailView: View {
                             Text("Range: \(rangeText(candle)) • Trajectory: \(candle.trajectory.rawValue.capitalized)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            if dateText(candle) != "Unknown" {
+                                Text("Date: \(dateText(candle))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
@@ -372,6 +430,12 @@ private struct SessionDetailView: View {
     private func rangeText(_ candle: CandleObject) -> String {
         guard let start = candle.rangeStart, let end = candle.rangeEnd else { return "Unknown" }
         return String(format: "%.2f - %.2f", start, end)
+    }
+
+    private func dateText(_ candle: CandleObject) -> String {
+        if let start = candle.visibleDateStart, let end = candle.visibleDateEnd { return "\(start) → \(end)" }
+        if let start = candle.visibleDateStart { return start }
+        return "Unknown"
     }
 }
 

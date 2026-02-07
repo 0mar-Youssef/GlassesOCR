@@ -64,7 +64,7 @@ final class OcrPipeline: Sendable {
     
     // MARK: - Private Implementation
     
-    private func performRecognition(pixelBuffer: CVPixelBuffer, completion: @escaping (OcrResult) -> Void) {
+    private func performRecognition(pixelBuffer: CVPixelBuffer, completion: @escaping @Sendable (OcrResult) -> Void) {
         let request = createTextRecognitionRequest(completion: completion)
         
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
@@ -79,7 +79,7 @@ final class OcrPipeline: Sendable {
         }
     }
     
-    private func performRecognition(cgImage: CGImage, completion: @escaping (OcrResult) -> Void) {
+    private func performRecognition(cgImage: CGImage, completion: @escaping @Sendable (OcrResult) -> Void) {
         let request = createTextRecognitionRequest(completion: completion)
         
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
@@ -94,7 +94,7 @@ final class OcrPipeline: Sendable {
         }
     }
     
-    private func createTextRecognitionRequest(completion: @escaping (OcrResult) -> Void) -> VNRecognizeTextRequest {
+    private func createTextRecognitionRequest(completion: @escaping @Sendable (OcrResult) -> Void) -> VNRecognizeTextRequest {
         let request = VNRecognizeTextRequest { [weak self] request, error in
             guard let self = self else {
                 completion(.empty)
@@ -148,4 +148,3 @@ final class OcrPipeline: Sendable {
         )
     }
 }
-
