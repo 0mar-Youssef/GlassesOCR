@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  GlassesOCR
 //
-//  Main UI for controlling glasses stream, OCR, and Sheets logging.
+//  Main UI for controlling glasses stream, OCR, and extraction logging.
 //
 
 import SwiftUI
@@ -12,34 +12,39 @@ import CoreVideo
 
 @MainActor
 final class AppState: ObservableObject {
-    
+
     // MARK: Dependencies
-    
+
     let glassesManager = GlassesManager()
-    
-    // 🔹 Make these nonisolated so they can be safely accessed from tasks
+    let sessionTracker = SessionTracker()
+
     nonisolated let ocrPipeline = OcrPipeline()
     nonisolated let parser = Parser()
     nonisolated let sheetsClient = SheetsClient()
-    
+
     // MARK: Published State
-    
+
     @Published var isDryRun: Bool = true
     @Published var isRunning: Bool = false
     @Published var lastObservation: StockObservation?
+    @Published var lastCandleObject: CandleObject?
     @Published var lastLogResult: String = "—"
     @Published var frameCount: Int = 0
-    
+    @Published var chartConfidence: Double = 0
+    @Published var isCandleChartInView: Bool = false
+    @Published var chartReason: String = ""
+
+    var sessions: [SessionBucket] { sessionTracker.sessions }
+    var activeSession: SessionBucket? { sessionTracker.activeSession }
+
     // MARK: Private
-    
+
     private var frameProcessingTask: Task<Void, Never>?
     private var lastFrameTime: Date = .distantPast
-    
-    /// Minimum interval between processed frames (in seconds)
-    static let frameIntervalSeconds: TimeInterval = 3.0
-    
-    // MARK: - Computed Properties
-    
+    static let frameIntervalSeconds: TimeInterval = 2.0
+
+    // MARK: Computed Properties
+
     var connectionStatus: String {
         switch glassesManager.connectionState {
         case .disconnected: return "Disconnected"
@@ -48,7 +53,7 @@ final class AppState: ObservableObject {
         case .registered: return "Registered"
         }
     }
-    
+
     var streamingStatus: String {
         switch glassesManager.streamingState {
         case .stopped: return "Stopped"
@@ -57,36 +62,30 @@ final class AppState: ObservableObject {
         case .error: return "Error"
         }
     }
-    
-    var errorMessage: String? {
-        glassesManager.errorMessage
-    }
-    
-    // MARK: - Actions
-    
+
+    var errorMessage: String? { glassesManager.errorMessage }
+
+    // MARK: Actions
+
     func start() async {
         guard !isRunning else { return }
         isRunning = true
         lastLogResult = "Starting…"
-        
-        // Connect if needed
+
         if glassesManager.connectionState != .connected && glassesManager.connectionState != .registered {
             await glassesManager.connect()
         }
-        
-        // Start streaming
+
         if glassesManager.connectionState == .connected || glassesManager.connectionState == .registered {
             await glassesManager.startStreaming()
-            lastLogResult = "Waiting for data…"
-            
-            // Start frame processing loop
+            lastLogResult = "Scanning for chart…"
             startFrameProcessing()
         } else {
             lastLogResult = "Connection failed"
             isRunning = false
         }
     }
-    
+
     func stop() async {
         isRunning = false
         frameProcessingTask?.cancel()
@@ -94,90 +93,71 @@ final class AppState: ObservableObject {
         await glassesManager.stopStreaming()
         lastLogResult = "Stopped"
     }
-    
-    // MARK: - Frame Processing
-    
+
+    // MARK: Frame processing
+
     private func startFrameProcessing() {
         frameProcessingTask?.cancel()
         frameProcessingTask = Task { [weak self] in
             guard let self = self else { return }
-            
+
             for await buffer in self.glassesManager.frameStream {
                 guard !Task.isCancelled else { break }
-                guard !Task.isCancelled else { break }
-                
-                // Throttle frames
+
                 let now = Date()
                 guard now.timeIntervalSince(self.lastFrameTime) >= Self.frameIntervalSeconds else { continue }
                 self.lastFrameTime = now
-                
-                // Capture buffer immediately to avoid data race
                 nonisolated(unsafe) let capturedBuffer = buffer
 
-                // Process frame immediately in this context to avoid data race
-                // Increment frame count on main actor
-                await MainActor.run {
-                    self.incrementFrameCount()
-                }
-                let currentCount = self.frameCount
+                await MainActor.run { self.frameCount += 1 }
 
-                // Run OCR (nonisolated)
                 let ocrResult = await self.ocrPipeline.recognizeText(in: capturedBuffer)
-                print("🔍 OCR detected: '\(ocrResult.recognizedText)'")
-                print("🔍 OCR confidence: \(ocrResult.confidence)")
-                print("🔍 OCR char count: \(ocrResult.recognizedText.count)")
-                
-                guard !ocrResult.recognizedText.isEmpty else {
-                    print("[AppState] Frame \(currentCount): No text detected")
-                    continue
+                guard !ocrResult.recognizedText.isEmpty else { continue }
+
+                let chartResult = self.parser.parseCandleChart(ocrResult: ocrResult)
+                await MainActor.run {
+                    self.chartConfidence = chartResult.confidence
+                    self.isCandleChartInView = chartResult.isCandleChart
+                    self.chartReason = chartResult.reason
                 }
-                
-                print("[AppState] Frame \(currentCount): OCR found \(ocrResult.recognizedText.count) chars")
-                
-                // Parse stock data (nonisolated)
-                guard let observation = self.parser.parse(ocrResult: ocrResult) else {
-                    print("[AppState] Frame \(currentCount): No stock data found in text")
+
+                guard chartResult.isCandleChart else {
                     await MainActor.run {
-                        self.updateLogResult("No stock data found")
+                        self.lastLogResult = "No chart detected (\(chartResult.reason))"
                     }
                     continue
                 }
-                
-                // Update observation on main actor
-                await MainActor.run {
-                    self.updateObservation(observation)
+
+                if let candle = chartResult.candle {
+                    await MainActor.run {
+                        self.lastCandleObject = candle
+                        self.sessionTracker.record(candle)
+                    }
                 }
-                
-                // Log to Sheets (nonisolated)
-                let dryRun = await self.isDryRun
-                let result = await self.sheetsClient.log(observation, dryRun: dryRun)
-                
-                // Update result on main actor
-                await MainActor.run {
-                    switch result {
-                    case .success:
-                        self.updateLogResult("✅ Logged to Sheets")
-                    case .dryRun:
-                        self.updateLogResult("📋 Dry run logged")
-                    case .error(let message):
-                        self.updateLogResult("❌ \(message)")
+
+                if let observation = self.parser.parse(ocrResult: ocrResult) {
+                    await MainActor.run {
+                        self.lastObservation = observation
+                    }
+
+                    let result = await self.sheetsClient.log(observation, dryRun: await self.isDryRun)
+                    await MainActor.run {
+                        switch result {
+                        case .success:
+                            self.lastLogResult = "✅ Chart extraction logged"
+                        case .dryRun:
+                            self.lastLogResult = "📋 Chart extraction ready (dry run)"
+                        case .error(let message):
+                            self.lastLogResult = "❌ \(message)"
+                        }
+                    }
+                } else {
+                    await MainActor.run {
+                        self.lastLogResult = "Chart detected; ticker/price still uncertain"
                     }
                 }
             }
         }
-    }
-    
-    // 🔹 Helper methods to update @Published properties on main actor
-    private func incrementFrameCount() {
-        frameCount += 1
-    }
-    
-    private func updateObservation(_ observation: StockObservation) {
-        lastObservation = observation
-    }
-    
-    private func updateLogResult(_ result: String) {
-        lastLogResult = result
     }
 }
 
@@ -185,158 +165,137 @@ final class AppState: ObservableObject {
 
 struct ContentView: View {
     @StateObject private var appState = AppState()
-    
+    @State private var selectedSession: SessionBucket?
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                // Status Section
-                statusSection
-                
-                // Last Observation
-                observationSection
-                
-                Spacer()
-                
-                // Controls
-                controlsSection
+            List {
+                Section("Live Status") {
+                    statusRow(label: "Connection", value: appState.connectionStatus, tint: connectionColor)
+                    statusRow(label: "Stream", value: appState.streamingStatus, tint: streamColor)
+                    statusRow(label: "Frames", value: "\(appState.frameCount)", tint: .secondary)
+                    statusRow(label: "Candlestick", value: appState.isCandleChartInView ? "Detected" : "Not in view", tint: appState.isCandleChartInView ? .green : .secondary)
+                    statusRow(label: "Confidence", value: String(format: "%.0f%%", appState.chartConfidence * 100), tint: .secondary)
+                    if !appState.chartReason.isEmpty {
+                        Text(appState.chartReason)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let error = appState.errorMessage {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                Section("Last Extraction") {
+                    if let candle = appState.lastCandleObject {
+                        statusRow(label: "Ticker", value: candle.ticker ?? "Unknown", tint: .primary)
+                        statusRow(label: "Timeframe", value: candle.timeframe ?? "Unknown", tint: .primary)
+                        statusRow(label: "App", value: candle.sourceApp ?? "Unknown", tint: .secondary)
+                        statusRow(label: "Price Range", value: formatPriceRange(candle), tint: .primary)
+                        statusRow(label: "Time Range", value: formatTimeRange(candle), tint: .secondary)
+                        statusRow(label: "Trajectory", value: candle.trajectory.rawValue.capitalized, tint: .primary)
+                    } else {
+                        Text("No candle extraction yet")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Text("Log")
+                        Spacer()
+                        Text(appState.lastLogResult)
+                            .multilineTextAlignment(.trailing)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("History") {
+                    if let active = appState.activeSession {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Active Session")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.green)
+                            Text("\(formatClock(active.startTime)) → \(formatClock(active.endTime))")
+                                .font(.caption)
+                            Text("\(active.candles.count) extractions • Top: \(active.topTicker)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if appState.sessions.isEmpty {
+                        Text("No history yet")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(appState.sessions) { session in
+                            Button {
+                                selectedSession = session
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("\(formatClock(session.startTime)) → \(formatClock(session.endTime))")
+                                            .fontWeight(.semibold)
+                                        Text("\(session.candles.count) candles • \(session.topTicker)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                Section("Controls") {
+                    Toggle(isOn: $appState.isDryRun) {
+                        VStack(alignment: .leading) {
+                            Text("Dry Run Mode")
+                            Text("Only preview logs without sending to Sheets")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Button {
+                        Task {
+                            if appState.isRunning {
+                                await appState.stop()
+                            } else {
+                                await appState.start()
+                            }
+                        }
+                    } label: {
+                        Label(appState.isRunning ? "Stop" : "Start", systemImage: appState.isRunning ? "stop.fill" : "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(appState.isRunning ? .red : .green)
+                }
             }
-            .padding()
+            .listStyle(.insetGrouped)
             .navigationTitle("GlassesOCR")
-        }
-    }
-    
-    // MARK: - Status Section
-    
-    private var statusSection: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Label("Connection", systemImage: "glasses")
-                Spacer()
-                Text(appState.connectionStatus)
-                    .foregroundStyle(connectionColor)
-                    .fontWeight(.medium)
-            }
-            
-            HStack {
-                Label("Stream", systemImage: "video")
-                Spacer()
-                Text(appState.streamingStatus)
-                    .foregroundStyle(streamColor)
-                    .fontWeight(.medium)
-            }
-            
-            HStack {
-                Label("Frames", systemImage: "photo.stack")
-                Spacer()
-                Text("\(appState.frameCount)")
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            
-            if let error = appState.errorMessage {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                    Spacer()
-                }
+            .sheet(item: $selectedSession) { session in
+                SessionDetailView(session: session)
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
-    
-    // MARK: - Observation Section
-    
-    private var observationSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Last Extraction")
-                .font(.headline)
-            
-            if let obs = appState.lastObservation {
-                VStack(spacing: 8) {
-                    dataRow(label: "Ticker", value: obs.ticker, icon: "chart.line.uptrend.xyaxis")
-                    dataRow(label: "Price", value: String(format: "$%.2f", obs.price), icon: "dollarsign.circle")
-                    dataRow(label: "Change", value: obs.change, icon: "arrow.up.arrow.down")
-                    dataRow(label: "Confidence", value: String(format: "%.0f%%", obs.confidence * 100), icon: "checkmark.seal")
-                }
-            } else {
-                Text("No data yet")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 20)
-            }
-            
-            Divider()
-            
-            HStack {
-                Text("Log Status:")
-                    .foregroundStyle(.secondary)
-                Text(appState.lastLogResult)
-                    .fontWeight(.medium)
-            }
-            .font(.subheadline)
-        }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-    }
-    
-    private func dataRow(label: String, value: String, icon: String) -> some View {
+
+    private func statusRow(label: String, value: String, tint: Color) -> some View {
         HStack {
-            Label(label, systemImage: icon)
-                .foregroundStyle(.secondary)
+            Text(label)
             Spacer()
             Text(value)
-                .fontWeight(.semibold)
+                .foregroundStyle(tint)
+                .fontWeight(.medium)
                 .monospacedDigit()
         }
     }
-    
-    // MARK: - Controls Section
-    
-    private var controlsSection: some View {
-        VStack(spacing: 16) {
-            // Dry Run Toggle
-            Toggle(isOn: $appState.isDryRun) {
-                VStack(alignment: .leading) {
-                    Text("Dry Run Mode")
-                        .fontWeight(.medium)
-                    Text("Print to console instead of sending to Sheets")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding()
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-            
-            // Start/Stop Button
-            Button {
-                Task {
-                    if appState.isRunning {
-                        await appState.stop()
-                    } else {
-                        await appState.start()
-                    }
-                }
-            } label: {
-                Label(
-                    appState.isRunning ? "Stop" : "Start",
-                    systemImage: appState.isRunning ? "stop.fill" : "play.fill"
-                )
-                .font(.title2)
-                .fontWeight(.semibold)
-                .frame(maxWidth: .infinity)
-                .padding()
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(appState.isRunning ? .red : .green)
-        }
-    }
-    
-    // MARK: - Helpers
-    
+
     private var connectionColor: Color {
         switch appState.glassesManager.connectionState {
         case .connected, .registered: return .green
@@ -344,7 +303,7 @@ struct ContentView: View {
         case .disconnected: return .secondary
         }
     }
-    
+
     private var streamColor: Color {
         switch appState.glassesManager.streamingState {
         case .streaming: return .green
@@ -352,6 +311,67 @@ struct ContentView: View {
         case .error: return .red
         case .stopped: return .secondary
         }
+    }
+
+    private func formatPriceRange(_ candle: CandleObject) -> String {
+        guard let start = candle.rangeStart, let end = candle.rangeEnd else { return "Unknown" }
+        return String(format: "%.2f - %.2f", start, end)
+    }
+
+    private func formatTimeRange(_ candle: CandleObject) -> String {
+        if let start = candle.visibleTimeStart, let end = candle.visibleTimeEnd { return "\(start) → \(end)" }
+        if let start = candle.visibleTimeStart { return start }
+        return "Unknown"
+    }
+
+    private func formatClock(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+private struct SessionDetailView: View {
+    let session: SessionBucket
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Session") {
+                    Text("Start: \(session.startTime.formatted(date: .abbreviated, time: .shortened))")
+                    Text("End: \(session.endTime.formatted(date: .abbreviated, time: .shortened))")
+                    Text("Total Extractions: \(session.candles.count)")
+                }
+
+                Section("Candles") {
+                    ForEach(Array(session.candles.reversed())) { candle in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(candle.ticker ?? "Unknown")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Text(candle.timestamp.formatted(date: .omitted, time: .shortened))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text("TF: \(candle.timeframe ?? "—") • App: \(candle.sourceApp ?? "—")")
+                                .font(.caption)
+                            Text("Range: \(rangeText(candle)) • Trajectory: \(candle.trajectory.rawValue.capitalized)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Session History")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func rangeText(_ candle: CandleObject) -> String {
+        guard let start = candle.rangeStart, let end = candle.rangeEnd else { return "Unknown" }
+        return String(format: "%.2f - %.2f", start, end)
     }
 }
 
