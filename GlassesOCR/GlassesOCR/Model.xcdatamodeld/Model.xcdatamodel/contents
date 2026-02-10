@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model name="Model" userDefinedModelVersionIdentifier="" type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22000" systemVersion="23G93" minimumToolsVersion="Automatic" sourceLanguage="Swift" usesScalarValueType="YES">
+    <entity name="CDSession" representedClassName="CDSession" codeGenerationType="class" syncable="YES">
+        <attribute name="id" attributeType="UUID" optional="NO" usesScalarValueType="NO"/>
+        <attribute name="startAt" attributeType="Date" optional="NO" usesScalarValueType="NO"/>
+        <attribute name="endAt" attributeType="Date" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="lastActiveAt" attributeType="Date" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="platformHintRaw" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="summaryTopSymbols" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="candleCount" attributeType="Integer 32" optional="YES" usesScalarValueType="YES"/>
+        <relationship name="candles" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDCandleObject" inverseName="session" inverseEntity="CDCandleObject"/>
+    </entity>
+    <entity name="CDCandleObject" representedClassName="CDCandleObject" codeGenerationType="class" syncable="YES">
+        <attribute name="id" attributeType="UUID" optional="NO" usesScalarValueType="NO"/>
+        <attribute name="timestampCaptured" attributeType="Date" optional="NO" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" attributeType="Date" optional="NO" usesScalarValueType="NO"/>
+        <attribute name="dedupKey" attributeType="String" optional="NO" usesScalarValueType="NO"/>
+        <attribute name="symbol" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="timeframeRaw" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="sourceAppHintRaw" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="visiblePriceMin" attributeType="Double" optional="NO" usesScalarValueType="YES"/>
+        <attribute name="visiblePriceMax" attributeType="Double" optional="NO" usesScalarValueType="YES"/>
+        <attribute name="visibleTimeStart" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="visibleTimeEnd" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="visibleDateStart" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="visibleDateEnd" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="trendRaw" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="slopeMetric" attributeType="Double" optional="NO" usesScalarValueType="YES"/>
+        <attribute name="confidence" attributeType="Double" optional="NO" usesScalarValueType="YES"/>
+        <attribute name="rawOcrHeader" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="rawOcrYAxis" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="rawOcrFooter" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="thumbnailRef" attributeType="String" optional="YES" usesScalarValueType="NO"/>
+        <attribute name="debugJSON" attributeType="Binary" optional="YES" usesScalarValueType="NO"/>
+        <relationship name="session" optional="NO" toMany="NO" deletionRule="Nullify" destinationEntity="CDSession" inverseName="candles" inverseEntity="CDSession"/>
+    </entity>
+</model>

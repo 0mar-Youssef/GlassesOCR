@@ -6,6 +6,7 @@
 //
 
 import Testing
+import CoreGraphics
 @testable import GlassesOCR
 
 struct GlassesOCRTests {
@@ -27,4 +28,18 @@ struct GlassesOCRTests {
         #expect(observation?.ticker == "AAPL")
         #expect(observation?.price == 173.24)
     }
+
+    @Test func cropPlannerClampsRects() async throws {
+        let planner = CropPlanner()
+        let plan = planner.plan(
+            chartBox: CGRect(x: 0.05, y: 0.2, width: 0.9, height: 0.6),
+            axisSide: .right,
+            frameSize: CGSize(width: 1920, height: 1080)
+        )
+        #expect(plan.headerRect.minY >= 0)
+        #expect(plan.footerRect.maxY <= 1)
+        #expect(plan.yAxisRect.maxX <= 1)
+        #expect(plan.bodyRect.minX >= 0)
+    }
+
 }

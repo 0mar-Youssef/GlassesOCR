@@ -7,6 +7,10 @@
 
 import SwiftUI
 import CoreVideo
+import CoreData
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - App State
 
@@ -24,6 +28,9 @@ final class AppState: ObservableObject {
     nonisolated let candleDetector = CandleChartDetector()
     nonisolated let candleExtractor = CandleChartExtractor()
     nonisolated let candleGate = CandleGate()
+    nonisolated let visualGate = VisualChartGate()
+    nonisolated let cropPlanner = CropPlanner()
+    nonisolated let adapterRegistry = AdapterRegistry()
 
     // MARK: Published State
 
@@ -38,14 +45,17 @@ final class AppState: ObservableObject {
     @Published var isCandleChartInView: Bool = false
     @Published var chartReason: String = ""
     @Published var frameIntervalSeconds: Double = 1.0
+    @Published var debugOverlayEnabled: Bool = false
+    @Published var debugPreviewImage: UIImage?
+    @Published var debugChartBox: CGRect?
+    @Published var debugCropPlan: CropPlan?
+    @Published var debugGateSignals: String = ""
 
-    var sessions: [SessionBucket] { sessionTracker.sessions }
-    var activeSession: SessionBucket? { sessionTracker.activeSession }
+    var activeSession: CDSession? { sessionTracker.activeSession }
 
     // MARK: Private
 
     private var frameProcessingTask: Task<Void, Never>?
-    private var lastFrameTime: Date = .distantPast
 
     // MARK: Computed Properties
 
@@ -80,14 +90,24 @@ final class AppState: ObservableObject {
             await glassesManager.connect()
         }
 
-        if glassesManager.connectionState == .connected || glassesManager.connectionState == .registered {
-            await glassesManager.startStreaming()
-            lastLogResult = "Scanning for chart…"
-            startFrameProcessing()
-        } else {
-            lastLogResult = "Connection failed"
-            isRunning = false
+        if glassesManager.connectionState != .connected && glassesManager.connectionState != .registered {
+            lastLogResult = "Waiting for registration approval…"
+            let ready = await glassesManager.waitForRegistration(timeout: 30)
+            if !ready {
+                lastLogResult = "Registration not completed"
+                isRunning = false
+                return
+            }
         }
+
+        await glassesManager.startStreaming()
+        if glassesManager.streamingState == .error {
+            lastLogResult = "Streaming failed"
+            isRunning = false
+            return
+        }
+        lastLogResult = "Scanning for chart…"
+        startFrameProcessing()
     }
 
     func stop() async {
@@ -99,32 +119,94 @@ final class AppState: ObservableObject {
     }
 
     // MARK: Frame processing
-
     private func startFrameProcessing() {
         frameProcessingTask?.cancel()
         frameProcessingTask = Task { [weak self] in
             guard let self = self else { return }
 
+            let stabilizer = ChartStabilizer()
+            var lastGateResult: ChartGateResult?
+            var lastFrameTime = Date.distantPast
+            var lastGateTime = Date.distantPast
+            var lastOcrTime = Date.distantPast
+            let gateInterval: TimeInterval = 1.0 / 6.0
+            let ocrCooldown: TimeInterval = 2.5
+
             for await buffer in self.glassesManager.frameStream {
                 guard !Task.isCancelled else { break }
 
                 let now = Date()
-                let shouldProcess = await MainActor.run { () -> Bool in
-                    if now.timeIntervalSince(self.lastFrameTime) >= self.frameIntervalSeconds {
-                        self.lastFrameTime = now
-                        return true
-                    }
-                    return false
-                }
+                let interval = await MainActor.run { self.frameIntervalSeconds }
+                let shouldProcess = now.timeIntervalSince(lastFrameTime) >= interval
+                if shouldProcess { lastFrameTime = now }
                 guard shouldProcess else { continue }
-                nonisolated(unsafe) let capturedBuffer = buffer
+                guard let snapshot = FrameSnapshot(pixelBuffer: buffer, capturedAt: now) else { continue }
 
                 await MainActor.run { self.frameCount += 1 }
 
-                let ocrResult = await self.ocrPipeline.recognizeText(in: capturedBuffer)
-                guard !ocrResult.recognizedText.isEmpty else { continue }
+                if now.timeIntervalSince(lastGateTime) >= gateInterval || lastGateResult == nil {
+                    let rawGate = await self.visualGate.evaluate(snapshot: snapshot)
+                    let stabilized = stabilizer.stabilize(result: rawGate)
+                    lastGateResult = stabilized
+                    lastGateTime = now
 
-                let detection = self.candleDetector.detect(ocrResult: ocrResult)
+                    let signalsText = stabilized.signals
+                        .map { "\($0.key):\(String(format: "%.2f", $0.value))" }
+                        .sorted()
+                        .joined(separator: " ")
+
+                    await MainActor.run {
+                        self.chartConfidence = stabilized.confidence
+                        self.isCandleChartInView = stabilized.isChart
+                        self.chartReason = "[gate] conf=\(String(format: "%.2f", stabilized.confidence))"
+                        self.debugGateSignals = signalsText
+                        if self.debugOverlayEnabled {
+                            self.debugPreviewImage = snapshot.midResUIImage()
+                            self.debugChartBox = stabilized.chartBox
+                        }
+                    }
+
+                    await MainActor.run {
+                        self.sessionTracker.observeGate(confidence: stabilized.confidence, isChart: stabilized.isChart, at: now)
+                    }
+                }
+
+                guard let gateResult = lastGateResult, gateResult.isChart else {
+                    await self.candleGate.reset()
+                    await MainActor.run { self.lastLogResult = "No chart detected (gate)" }
+                    continue
+                }
+
+                guard now.timeIntervalSince(lastOcrTime) >= ocrCooldown else { continue }
+                lastOcrTime = now
+
+                var cropPlan = self.cropPlanner.plan(
+                    chartBox: gateResult.chartBox,
+                    axisSide: gateResult.axisSide,
+                    frameSize: CGSize(width: snapshot.width, height: snapshot.height)
+                )
+
+                var regionBundle = await self.ocrPipeline.recognizeRegions(in: snapshot, cropPlan: cropPlan)
+                var activeAdapter: PlatformAdapter?
+
+                if let detected = self.adapterRegistry.detect(
+                    headerText: regionBundle.header.recognizedText,
+                    fullText: regionBundle.combinedText
+                ), detected.confidence >= 0.7 {
+                    cropPlan = detected.adapter.refineCropPlan(
+                        base: cropPlan,
+                        frameSize: CGSize(width: snapshot.width, height: snapshot.height)
+                    )
+                    regionBundle = await self.ocrPipeline.recognizeRegions(in: snapshot, cropPlan: cropPlan)
+                    activeAdapter = detected.adapter
+                }
+
+                let debugEnabled = await MainActor.run { self.debugOverlayEnabled }
+                if debugEnabled {
+                    await MainActor.run { self.debugCropPlan = cropPlan }
+                }
+
+                let detection = self.candleDetector.detect(regions: regionBundle, gateConfidence: gateResult.confidence)
                 await MainActor.run {
                     self.chartConfidence = detection.confidence
                     self.isCandleChartInView = detection.isCandleChart
@@ -133,41 +215,45 @@ final class AppState: ObservableObject {
 
                 guard detection.isCandleChart, let context = detection.context else {
                     await self.candleGate.reset()
-                    await MainActor.run {
-                        self.lastLogResult = "No chart detected (\(detection.reason))"
-                    }
+                    await MainActor.run { self.lastLogResult = "No chart detected (OCR)" }
                     continue
                 }
 
-                let extraction = self.candleExtractor.extract(from: context, confidence: detection.confidence)
+                let extraction = self.candleExtractor.extract(
+                    from: context,
+                    cropPlan: cropPlan,
+                    snapshot: snapshot,
+                    confidence: detection.confidence,
+                    adapter: activeAdapter
+                )
                 if let candle = extraction.candle {
-                    let gateResult = await self.candleGate.process(candle)
-                    await MainActor.run {
-                        self.chartReason = gateResult.reason
-                    }
-                    if gateResult.status == .accepted, let gated = gateResult.candle {
+                    let gateDecision = await self.candleGate.process(candle)
+                    await MainActor.run { self.chartReason = gateDecision.reason }
+                    if gateDecision.status == .accepted, let gated = gateDecision.candle {
+                        let thumbnailData = snapshot.thumbnailJPEG(normalizedRect: cropPlan.bodyRect)
                         await MainActor.run {
                             self.lastCandleObject = gated
                             self.lastCandleTimestamp = gated.timestamp
-                            self.sessionTracker.record(gated)
+                            self.sessionTracker.record(gated, chartBox: gateResult.chartBox, thumbnailData: thumbnailData)
                         }
                     } else {
-                        await MainActor.run {
-                            self.lastLogResult = gateResult.reason
-                        }
+                        await MainActor.run { self.lastLogResult = gateDecision.reason }
                     }
                 } else {
-                    await MainActor.run {
-                        self.lastLogResult = extraction.reason
-                    }
+                    await MainActor.run { self.lastLogResult = extraction.reason }
                 }
 
-                if let observation = self.parser.parse(ocrResult: ocrResult) {
-                    await MainActor.run {
-                        self.lastObservation = observation
-                    }
+                let syntheticOcr = OcrResult(
+                    recognizedText: regionBundle.combinedText,
+                    confidence: regionBundle.averageConfidence,
+                    observations: []
+                )
 
-                    let result = await self.sheetsClient.log(observation, dryRun: self.isDryRun)
+                if let observation = self.parser.parse(ocrResult: syntheticOcr) {
+                    await MainActor.run { self.lastObservation = observation }
+
+                    let isDryRun = await MainActor.run { self.isDryRun }
+                    let result = await self.sheetsClient.log(observation, dryRun: isDryRun)
                     await MainActor.run {
                         switch result {
                         case .success:
@@ -179,9 +265,7 @@ final class AppState: ObservableObject {
                         }
                     }
                 } else {
-                    await MainActor.run {
-                        self.lastLogResult = "Chart detected; ticker/price still uncertain"
-                    }
+                    await MainActor.run { self.lastLogResult = "Chart detected; ticker/price still uncertain" }
                 }
             }
         }
@@ -192,7 +276,14 @@ final class AppState: ObservableObject {
 
 struct ContentView: View {
     @StateObject private var appState = AppState()
-    @State private var selectedSession: SessionBucket?
+
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \CDSession.startAt, ascending: false)],
+        animation: .default
+    ) private var sessions: FetchedResults<CDSession>
+
+    @State private var selectedSession: CDSession?
+    @State private var searchText: String = ""
 
     var body: some View {
         NavigationStack {
@@ -216,6 +307,24 @@ struct ContentView: View {
                         Text(error)
                             .font(.caption)
                             .foregroundStyle(.red)
+                    }
+
+                    Toggle("Debug Overlay", isOn: $appState.debugOverlayEnabled)
+                        .toggleStyle(.switch)
+
+                    if appState.debugOverlayEnabled {
+                        DebugOverlayView(
+                            image: appState.debugPreviewImage,
+                            chartBox: appState.debugChartBox,
+                            cropPlan: appState.debugCropPlan
+                        )
+                        .frame(height: 180)
+
+                        if !appState.debugGateSignals.isEmpty {
+                            Text(appState.debugGateSignals)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
@@ -242,43 +351,22 @@ struct ContentView: View {
                     }
                 }
 
-                Section("History") {
-                    if let active = appState.activeSession {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Active Session")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.green)
-                            Text("\(formatClock(active.startTime)) → \(formatClock(active.endTime))")
-                                .font(.caption)
-                            Text("\(active.candles.count) extractions • Top: \(active.topTicker)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    if appState.sessions.isEmpty {
+                if groupedSessions.isEmpty {
+                    Section("History") {
                         Text("No history yet")
                             .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(appState.sessions) { session in
-                            Button {
-                                selectedSession = session
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("\(formatClock(session.startTime)) → \(formatClock(session.endTime))")
-                                            .fontWeight(.semibold)
-                                        Text("\(session.candles.count) candles • \(session.topTicker)")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundStyle(.tertiary)
+                    }
+                } else {
+                    ForEach(groupedSessions, id: \.day) { group in
+                        Section(group.title) {
+                            ForEach(group.sessions, id: \.objectID) { session in
+                                Button {
+                                    selectedSession = session
+                                } label: {
+                                    SessionRow(session: session)
                                 }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -321,6 +409,7 @@ struct ContentView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("GlassesOCR")
+            .searchable(text: $searchText, prompt: "Search ticker")
             .sheet(item: $selectedSession) { session in
                 SessionDetailView(session: session)
             }
@@ -383,62 +472,86 @@ struct ContentView: View {
         let fps = value > 0 ? Int(round(1.0 / value)) : 0
         return String(format: "%.1fs (~%d fps)", value, fps)
     }
-}
 
-private struct SessionDetailView: View {
-    let session: SessionBucket
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Session") {
-                    Text("Start: \(session.startTime.formatted(date: .abbreviated, time: .shortened))")
-                    Text("End: \(session.endTime.formatted(date: .abbreviated, time: .shortened))")
-                    Text("Total Extractions: \(session.candles.count)")
-                }
-
-                Section("Candles") {
-                    ForEach(Array(session.candles.reversed())) { candle in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(candle.ticker ?? "Unknown")
-                                    .fontWeight(.semibold)
-                                Spacer()
-                                Text(candle.timestamp.formatted(date: .omitted, time: .shortened))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Text("TF: \(candle.timeframe ?? "—") • App: \(candle.sourceApp ?? "—")")
-                                .font(.caption)
-                            Text("Range: \(rangeText(candle)) • Trajectory: \(candle.trajectory.rawValue.capitalized)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            if dateText(candle) != "Unknown" {
-                                Text("Date: \(dateText(candle))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
+    private var filteredSessions: [CDSession] {
+        let allSessions = Array(sessions)
+        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return allSessions
+        }
+        let query = searchText.lowercased()
+        return allSessions.filter { session in
+            session.candlesArray.contains { candle in
+                (candle.symbol ?? "").lowercased().contains(query)
             }
-            .navigationTitle("Session History")
-            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
-    private func rangeText(_ candle: CandleObject) -> String {
-        guard let start = candle.rangeStart, let end = candle.rangeEnd else { return "Unknown" }
-        return String(format: "%.2f - %.2f", start, end)
+    private var groupedSessions: [(day: Date, title: String, sessions: [CDSession])] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: filteredSessions) { session in
+            calendar.startOfDay(for: session.startAt ?? Date.distantPast)
+        }
+        let sortedDays = grouped.keys.sorted(by: >)
+        return sortedDays.map { day in
+            let title = formatDay(day)
+            let sessions = grouped[day]?.sorted {
+                ($0.startAt ?? Date.distantPast) > ($1.startAt ?? Date.distantPast)
+            } ?? []
+            return (day: day, title: title, sessions: sessions)
+        }
     }
 
-    private func dateText(_ candle: CandleObject) -> String {
-        if let start = candle.visibleDateStart, let end = candle.visibleDateEnd { return "\(start) → \(end)" }
-        if let start = candle.visibleDateStart { return start }
-        return "Unknown"
+    private func formatDay(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "Today" }
+        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+}
+
+private struct SessionRow: View {
+    let session: CDSession
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(session.timeRangeText)
+                        .fontWeight(.semibold)
+                    if session.isActive {
+                        Circle()
+                            .fill(.green)
+                            .frame(width: 8, height: 8)
+                    }
+                }
+
+                if !session.topSymbols.isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(session.topSymbols.prefix(3), id: \.self) { symbol in
+                            Text(symbol)
+                                .font(.caption2)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.blue.opacity(0.15)))
+                        }
+                    }
+                }
+
+                Text("\(session.candlesArray.count) candles")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .foregroundStyle(.tertiary)
+        }
     }
 }
 
 #Preview {
     ContentView()
+        .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
 }

@@ -8,6 +8,7 @@
 import Foundation
 import Vision
 import CoreGraphics
+import CoreData
 
 // MARK: - Stock Observation
 
@@ -62,8 +63,13 @@ struct CandleObject: Codable, Identifiable, Sendable {
     let visibleDateStart: String?
     let visibleDateEnd: String?
     let trajectory: Trajectory
+    let slopeMetric: Double?
     let confidence: Double
     let rawSnippet: String
+    let rawOcrHeader: String?
+    let rawOcrYAxis: String?
+    let rawOcrFooter: String?
+    let debugJSON: Data?
 
     init(
         id: UUID = UUID(),
@@ -78,8 +84,13 @@ struct CandleObject: Codable, Identifiable, Sendable {
         visibleDateStart: String?,
         visibleDateEnd: String?,
         trajectory: Trajectory,
+        slopeMetric: Double? = nil,
         confidence: Double,
-        rawSnippet: String
+        rawSnippet: String,
+        rawOcrHeader: String? = nil,
+        rawOcrYAxis: String? = nil,
+        rawOcrFooter: String? = nil,
+        debugJSON: Data? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -93,8 +104,13 @@ struct CandleObject: Codable, Identifiable, Sendable {
         self.visibleDateStart = visibleDateStart
         self.visibleDateEnd = visibleDateEnd
         self.trajectory = trajectory
+        self.slopeMetric = slopeMetric
         self.confidence = confidence
         self.rawSnippet = rawSnippet
+        self.rawOcrHeader = rawOcrHeader
+        self.rawOcrYAxis = rawOcrYAxis
+        self.rawOcrFooter = rawOcrFooter
+        self.debugJSON = debugJSON
     }
 }
 
@@ -124,8 +140,7 @@ struct ChartExtractionResult {
 // MARK: - Candle Chart Pipeline
 
 struct CandleChartContext {
-    let ocrResult: OcrResult
-    let region: Parser.RegionText
+    let regions: RegionOcrBundle
     let combinedUpper: String
     let headerUpper: String
     let footerUpper: String
@@ -146,36 +161,36 @@ struct CandleChartExtraction {
 final class CandleChartDetector: Sendable {
     private let parser = Parser()
 
-    func detect(ocrResult: OcrResult) -> CandleChartDetection {
-        let text = ocrResult.recognizedText
+    func detect(regions: RegionOcrBundle, gateConfidence: Double) -> CandleChartDetection {
+        let text = regions.combinedText
         guard !text.isEmpty else {
-            return CandleChartDetection(isCandleChart: false, confidence: 0, reason: "No OCR text", context: nil)
+            return CandleChartDetection(isCandleChart: false, confidence: gateConfidence * 0.4, reason: "No OCR text", context: nil)
         }
 
-        let region = parser.splitIntoRegions(ocrResult: ocrResult)
         let combinedUpper = text.uppercased()
-        let headerUpper = region.header.uppercased()
-        let footerUpper = region.footer.uppercased()
+        let headerUpper = regions.header.recognizedText.uppercased()
+        let footerUpper = regions.footer.recognizedText.uppercased()
 
         let ticker = parser.extractTicker(from: headerUpper) ?? parser.extractTicker(from: combinedUpper)
         let timeframe = parser.extractTimeframe(from: headerUpper) ?? parser.extractTimeframe(from: combinedUpper)
         let sourceApp = parser.extractSourceApp(from: combinedUpper)
 
-        let axisPrices = parser.extractAxisPrices(from: ocrResult.observations)
+        let axisPrices = parser.extractAxisPrices(from: regions.yAxis.observations)
         let priceCandidates = axisPrices.isEmpty
-            ? parser.extractAllPrices(from: region.rightAxis + " " + region.leftAxis)
+            ? parser.extractAllPrices(from: regions.yAxis.recognizedText)
             : axisPrices
 
         let keywordHits = parser.chartKeywords.filter { combinedUpper.contains($0) }.count
         let directionalHits = (parser.upIndicators + parser.downIndicators).filter { combinedUpper.contains($0) }.count
 
-        var confidence = ocrResult.confidence * 0.25
-        confidence += ticker != nil ? 0.18 : 0
-        confidence += timeframe != nil ? 0.22 : 0
-        confidence += priceCandidates.count >= 4 ? 0.20 : 0
-        confidence += min(Double(keywordHits) * 0.06, 0.18)
-        confidence += directionalHits > 0 ? 0.08 : 0
-        confidence += sourceApp != nil ? 0.09 : 0
+        var confidence = gateConfidence * 0.45
+        confidence += regions.averageConfidence * 0.2
+        confidence += ticker != nil ? 0.15 : 0
+        confidence += timeframe != nil ? 0.18 : 0
+        confidence += priceCandidates.count >= 4 ? 0.15 : 0
+        confidence += min(Double(keywordHits) * 0.05, 0.15)
+        confidence += directionalHits > 0 ? 0.05 : 0
+        confidence += sourceApp != nil ? 0.07 : 0
         confidence = min(max(confidence, 0), 1)
 
         guard confidence >= 0.55 else {
@@ -188,8 +203,7 @@ final class CandleChartDetector: Sendable {
         }
 
         let context = CandleChartContext(
-            ocrResult: ocrResult,
-            region: region,
+            regions: regions,
             combinedUpper: combinedUpper,
             headerUpper: headerUpper,
             footerUpper: footerUpper
@@ -201,26 +215,45 @@ final class CandleChartDetector: Sendable {
 
 final class CandleChartExtractor: Sendable {
     private let parser = Parser()
+    private let trajectoryAnalyzer = TrajectoryAnalyzer()
 
-    func extract(from context: CandleChartContext, confidence: Double) -> CandleChartExtraction {
-        let ocrResult = context.ocrResult
-        let text = ocrResult.recognizedText
+    func extract(from context: CandleChartContext, cropPlan: CropPlan, snapshot: FrameSnapshot, confidence: Double, adapter: PlatformAdapter? = nil) -> CandleChartExtraction {
+        let regions = context.regions
         let combinedUpper = context.combinedUpper
 
-        let ticker = parser.extractTicker(from: context.headerUpper) ?? parser.extractTicker(from: combinedUpper)
-        let timeframe = parser.extractTimeframe(from: context.headerUpper) ?? parser.extractTimeframe(from: combinedUpper)
-        let sourceApp = parser.extractSourceApp(from: combinedUpper)
+        var ticker = parser.extractTicker(from: context.headerUpper) ?? parser.extractTicker(from: combinedUpper)
+        var timeframe = parser.extractTimeframe(from: context.headerUpper) ?? parser.extractTimeframe(from: combinedUpper)
+        var sourceApp = parser.extractSourceApp(from: combinedUpper)
 
-        let axisPrices = parser.extractAxisPrices(from: ocrResult.observations)
+        if let adapter {
+            let augmented = adapter.augmentParsing(ticker: ticker, timeframe: timeframe, headerText: regions.header.recognizedText)
+            ticker = augmented.ticker
+            timeframe = augmented.timeframe
+            sourceApp = sourceApp ?? adapter.platformName
+        }
+
+        let axisPrices = parser.extractAxisPrices(from: regions.yAxis.observations)
         let priceCandidates = axisPrices.isEmpty
-            ? parser.extractAllPrices(from: context.region.rightAxis + " " + context.region.leftAxis)
+            ? parser.extractAllPrices(from: regions.yAxis.recognizedText)
             : axisPrices
         let range = parser.inferVisibleRange(from: priceCandidates)
 
-        let timeLabels = parser.extractTimeLabels(from: ocrResult.observations)
+        let timeLabels = parser.extractTimeLabels(from: regions.footer.observations, restrictToLowerBand: false)
         let fallbackTimeLabels = timeLabels.isEmpty ? parser.extractTimeLabels(from: context.footerUpper + " " + combinedUpper) : timeLabels
-        let dateLabels = parser.extractDateLabels(from: ocrResult.observations)
+        let dateLabels = parser.extractDateLabels(from: regions.footer.observations, restrictToLowerBand: false)
         let fallbackDateLabels = dateLabels.isEmpty ? parser.extractDateLabels(from: context.footerUpper + " " + combinedUpper) : dateLabels
+
+        var trajectory: Trajectory = parser.extractTrajectory(from: combinedUpper)
+        var slopeMetric: Double? = nil
+        if let range = range, let bodyImage = snapshot.cropMidRes(normalizedRect: cropPlan.bodyRect) {
+            let result = trajectoryAnalyzer.analyze(image: bodyImage, priceRange: range)
+            trajectory = result.trajectory
+            slopeMetric = result.slopeMetric
+        }
+
+        let snippetText = [regions.header.recognizedText, regions.yAxis.recognizedText, regions.footer.recognizedText]
+            .joined(separator: " ")
+            .prefix(180)
 
         let candle = CandleObject(
             ticker: ticker,
@@ -232,9 +265,14 @@ final class CandleChartExtractor: Sendable {
             visibleTimeEnd: fallbackTimeLabels.count >= 2 ? fallbackTimeLabels.last : nil,
             visibleDateStart: fallbackDateLabels.first,
             visibleDateEnd: fallbackDateLabels.count >= 2 ? fallbackDateLabels.last : nil,
-            trajectory: parser.extractTrajectory(from: combinedUpper),
+            trajectory: trajectory,
+            slopeMetric: slopeMetric,
             confidence: confidence,
-            rawSnippet: String(text.prefix(180)).replacingOccurrences(of: "\n", with: " ")
+            rawSnippet: String(snippetText).replacingOccurrences(of: "\n", with: " "),
+            rawOcrHeader: regions.header.recognizedText.isEmpty ? nil : regions.header.recognizedText,
+            rawOcrYAxis: regions.yAxis.recognizedText.isEmpty ? nil : regions.yAxis.recognizedText,
+            rawOcrFooter: regions.footer.recognizedText.isEmpty ? nil : regions.footer.recognizedText,
+            debugJSON: nil
         )
 
         return CandleChartExtraction(candle: candle, reason: "Extracted")
@@ -546,12 +584,16 @@ final class Parser: Sendable {
     }
 
     fileprivate func extractTimeLabels(from observations: [VNRecognizedTextObservation]) -> [String] {
+        extractTimeLabels(from: observations, restrictToLowerBand: true)
+    }
+
+    fileprivate func extractTimeLabels(from observations: [VNRecognizedTextObservation], restrictToLowerBand: Bool) -> [String] {
         guard let regex = try? NSRegularExpression(pattern: timeLabelPattern) else { return [] }
         var hits: [(label: String, x: CGFloat)] = []
 
         for observation in observations {
             let box = observation.boundingBox
-            guard box.midY < 0.25 else { continue }
+            if restrictToLowerBand && box.midY >= 0.25 { continue }
             guard let candidate = observation.topCandidates(1).first else { continue }
             let text = candidate.string
             let range = NSRange(text.startIndex..., in: text)
@@ -580,11 +622,15 @@ final class Parser: Sendable {
     }
 
     fileprivate func extractDateLabels(from observations: [VNRecognizedTextObservation]) -> [String] {
+        extractDateLabels(from: observations, restrictToLowerBand: true)
+    }
+
+    fileprivate func extractDateLabels(from observations: [VNRecognizedTextObservation], restrictToLowerBand: Bool) -> [String] {
         var hits: [(label: String, x: CGFloat)] = []
 
         for observation in observations {
             let box = observation.boundingBox
-            guard box.midY < 0.25 else { continue }
+            if restrictToLowerBand && box.midY >= 0.25 { continue }
             guard let candidate = observation.topCandidates(1).first else { continue }
             let text = candidate.string
 
@@ -677,99 +723,200 @@ final class Parser: Sendable {
 
 @MainActor
 final class SessionTracker: ObservableObject {
-    @Published private(set) var sessions: [SessionBucket] = []
-    @Published private(set) var activeSession: SessionBucket?
+    @Published private(set) var activeSession: CDSession?
 
+    private let context: NSManagedObjectContext
     private let inactivityTimeout: TimeInterval = 5 * 60
-    private let dedupInterval: TimeInterval = 12
-    private let maxSessionsToKeep: Int = 200
-    private let storageURL: URL
+    private let dedupInterval: TimeInterval = 120
+    private let gateWindowSize = 5
+    private let gateRequiredCount = 3
+    private var gateSamples: [Bool] = []
 
-    init() {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSTemporaryDirectory())
-        self.storageURL = docs.appendingPathComponent("candle_sessions.json")
-        loadFromDisk()
+    init(context: NSManagedObjectContext = PersistenceController.shared.container.viewContext) {
+        self.context = context
+        self.activeSession = fetchActiveSession()
     }
 
-    func record(_ candle: CandleObject) {
+    func observeGate(confidence: Double, isChart: Bool, at now: Date = Date()) {
+        let pass = isChart && confidence >= 0.70
+        gateSamples.append(pass)
+        if gateSamples.count > gateWindowSize {
+            gateSamples.removeFirst(gateSamples.count - gateWindowSize)
+        }
+
+        if shouldStartSession(), activeSession == nil {
+            let session = CDSession(context: context)
+            session.id = UUID()
+            session.startAt = now
+            session.endAt = now
+            session.lastActiveAt = now
+            activeSession = session
+            saveContext()
+        } else if pass, let activeSession {
+            activeSession.lastActiveAt = now
+            activeSession.endAt = now
+            saveContext()
+        } else if let activeSession, let lastActive = activeSession.lastActiveAt, now.timeIntervalSince(lastActive) > inactivityTimeout {
+            activeSession.endAt = lastActive
+            self.activeSession = nil
+            saveContext()
+        }
+    }
+
+    func record(_ candle: CandleObject, chartBox: CGRect?, thumbnailData: Data?) {
         let now = candle.timestamp
+        let session = activeSession ?? createSession(at: now)
 
-        if var current = activeSession,
-           now.timeIntervalSince(current.endTime) <= inactivityTimeout {
-            current.endTime = now
+        session.lastActiveAt = now
+        session.endAt = now
 
-            if let last = current.candles.last,
-               shouldDeduplicate(last: last, incoming: candle, at: now) {
-                current.candles[current.candles.count - 1] = candle
-            } else {
-                current.candles.append(candle)
+        let dedupKey = makeDedupKey(candle: candle, chartBox: chartBox)
+        if let existing = fetchRecentCandle(dedupKey: dedupKey, since: now.addingTimeInterval(-dedupInterval)) {
+            merge(existing: existing, incoming: candle)
+            existing.updatedAt = now
+            if let thumbnailData, shouldUpdateThumbnail(existing: existing, incomingConfidence: candle.confidence) {
+                let candleID = existing.id ?? UUID()
+                if existing.id == nil { existing.id = candleID }
+                existing.thumbnailRef = persistThumbnail(data: thumbnailData, candleID: candleID)
             }
-
-            activeSession = current
-            upsertSession(current)
-            pruneSessionsIfNeeded()
-            saveToDisk()
-            return
-        }
-
-        let newSession = SessionBucket(
-            id: UUID(),
-            startTime: now,
-            endTime: now,
-            candles: [candle]
-        )
-        activeSession = newSession
-        upsertSession(newSession)
-        pruneSessionsIfNeeded()
-        saveToDisk()
-    }
-
-    private func shouldDeduplicate(last: CandleObject, incoming: CandleObject, at now: Date) -> Bool {
-        let sameTicker = (last.ticker ?? "") == (incoming.ticker ?? "")
-        let sameTimeframe = (last.timeframe ?? "") == (incoming.timeframe ?? "")
-        let tooSoon = now.timeIntervalSince(last.timestamp) < dedupInterval
-        return sameTicker && sameTimeframe && tooSoon
-    }
-
-    private func upsertSession(_ session: SessionBucket) {
-        if let index = sessions.firstIndex(where: { $0.id == session.id }) {
-            sessions[index] = session
         } else {
-            sessions.insert(session, at: 0)
+            let newCandle = CDCandleObject(context: context)
+            newCandle.id = candle.id
+            newCandle.timestampCaptured = candle.timestamp
+            newCandle.updatedAt = now
+            newCandle.dedupKey = dedupKey
+            apply(candle: candle, to: newCandle)
+            newCandle.session = session
+
+            if let thumbnailData {
+                newCandle.thumbnailRef = persistThumbnail(data: thumbnailData, candleID: candle.id)
+            }
         }
+
+        session.candleCount = Int32(session.candlesArray.count)
+        if session.platformHintRaw == nil, let app = candle.sourceApp {
+            session.platformHintRaw = app
+        }
+        if !session.topSymbols.isEmpty {
+            session.summaryTopSymbols = session.topSymbols.prefix(3).joined(separator: ", ")
+        }
+        saveContext()
     }
 
-    private func pruneSessionsIfNeeded() {
-        guard sessions.count > maxSessionsToKeep else { return }
-        sessions.sort { $0.startTime > $1.startTime }
-        sessions = Array(sessions.prefix(maxSessionsToKeep))
-        if let active = activeSession,
-           !sessions.contains(where: { $0.id == active.id }) {
-            activeSession = nil
-        }
+    private func shouldStartSession() -> Bool {
+        gateSamples.filter { $0 }.count >= gateRequiredCount
     }
 
-    private func loadFromDisk() {
+    private func createSession(at date: Date) -> CDSession {
+        let session = CDSession(context: context)
+        session.id = UUID()
+        session.startAt = date
+        session.endAt = date
+        session.lastActiveAt = date
+        activeSession = session
+        return session
+    }
+
+    private func fetchActiveSession() -> CDSession? {
+        let request: NSFetchRequest<CDSession> = CDSession.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "startAt", ascending: false)]
+        request.fetchLimit = 1
+        guard let session = (try? context.fetch(request))?.first else { return nil }
+        if let lastActive = session.lastActiveAt, Date().timeIntervalSince(lastActive) <= inactivityTimeout {
+            return session
+        }
+        return nil
+    }
+
+    private func fetchRecentCandle(dedupKey: String, since date: Date) -> CDCandleObject? {
+        let request: NSFetchRequest<CDCandleObject> = CDCandleObject.fetchRequest()
+        request.predicate = NSPredicate(format: "dedupKey == %@ AND timestampCaptured >= %@", dedupKey, date as NSDate)
+        request.sortDescriptors = [NSSortDescriptor(key: "timestampCaptured", ascending: false)]
+        request.fetchLimit = 1
+        return try? context.fetch(request).first
+    }
+
+    private func makeDedupKey(candle: CandleObject, chartBox: CGRect?) -> String {
+        let ticker = candle.ticker ?? "-"
+        let timeframe = candle.timeframe ?? "-"
+        let boxKey: String
+        if let box = chartBox {
+            let q = { (value: CGFloat) -> String in String(format: "%.2f", value) }
+            boxKey = "\(q(box.minX))|\(q(box.minY))|\(q(box.width))|\(q(box.height))"
+        } else {
+            boxKey = "no-box"
+        }
+        return "\(ticker)|\(timeframe)|\(boxKey)"
+    }
+
+    private func merge(existing: CDCandleObject, incoming: CandleObject) {
+        let shouldReplace = incoming.confidence >= existing.confidence
+
+        if shouldReplace || existing.symbol == nil { existing.symbol = incoming.ticker }
+        if shouldReplace || existing.timeframeRaw == nil { existing.timeframeRaw = incoming.timeframe }
+        if shouldReplace || existing.sourceAppHintRaw == nil { existing.sourceAppHintRaw = incoming.sourceApp }
+        if shouldReplace || existing.visibleTimeStart == nil { existing.visibleTimeStart = incoming.visibleTimeStart }
+        if shouldReplace || existing.visibleTimeEnd == nil { existing.visibleTimeEnd = incoming.visibleTimeEnd }
+        if shouldReplace || existing.visibleDateStart == nil { existing.visibleDateStart = incoming.visibleDateStart }
+        if shouldReplace || existing.visibleDateEnd == nil { existing.visibleDateEnd = incoming.visibleDateEnd }
+        if shouldReplace || existing.trendRaw == nil { existing.trendRaw = incoming.trajectory.rawValue }
+        if shouldReplace || existing.rawOcrHeader == nil { existing.rawOcrHeader = incoming.rawOcrHeader }
+        if shouldReplace || existing.rawOcrYAxis == nil { existing.rawOcrYAxis = incoming.rawOcrYAxis }
+        if shouldReplace || existing.rawOcrFooter == nil { existing.rawOcrFooter = incoming.rawOcrFooter }
+        if shouldReplace || existing.debugJSON == nil { existing.debugJSON = incoming.debugJSON }
+
+        if let rangeStart = incoming.rangeStart { existing.visiblePriceMin = rangeStart }
+        if let rangeEnd = incoming.rangeEnd { existing.visiblePriceMax = rangeEnd }
+        if let slope = incoming.slopeMetric { existing.slopeMetric = slope }
+
+        existing.confidence = max(existing.confidence, incoming.confidence)
+    }
+
+    private func apply(candle: CandleObject, to record: CDCandleObject) {
+        record.symbol = candle.ticker
+        record.timeframeRaw = candle.timeframe
+        record.sourceAppHintRaw = candle.sourceApp
+        if let rangeStart = candle.rangeStart { record.visiblePriceMin = rangeStart }
+        if let rangeEnd = candle.rangeEnd { record.visiblePriceMax = rangeEnd }
+        record.visibleTimeStart = candle.visibleTimeStart
+        record.visibleTimeEnd = candle.visibleTimeEnd
+        record.visibleDateStart = candle.visibleDateStart
+        record.visibleDateEnd = candle.visibleDateEnd
+        record.trendRaw = candle.trajectory.rawValue
+        if let slope = candle.slopeMetric { record.slopeMetric = slope }
+        record.confidence = candle.confidence
+        record.rawOcrHeader = candle.rawOcrHeader
+        record.rawOcrYAxis = candle.rawOcrYAxis
+        record.rawOcrFooter = candle.rawOcrFooter
+        record.debugJSON = candle.debugJSON
+    }
+
+    private func shouldUpdateThumbnail(existing: CDCandleObject, incomingConfidence: Double) -> Bool {
+        return incomingConfidence >= existing.confidence + 0.1 || existing.thumbnailRef == nil
+    }
+
+    private func persistThumbnail(data: Data, candleID: UUID) -> String? {
+        let fm = FileManager.default
+        let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let folder = appSupport.appendingPathComponent("Thumbnails", isDirectory: true)
+        try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let fileURL = folder.appendingPathComponent("\(candleID.uuidString).jpg")
         do {
-            let data = try Data(contentsOf: storageURL)
-            let decoded = try JSONDecoder().decode([SessionBucket].self, from: data)
-            sessions = decoded.sorted(by: { $0.startTime > $1.startTime })
-            pruneSessionsIfNeeded()
-            let now = Date()
-            activeSession = sessions.first(where: { now.timeIntervalSince($0.endTime) <= inactivityTimeout })
+            try data.write(to: fileURL, options: .atomic)
+            return fileURL.path
         } catch {
-            sessions = []
-            activeSession = nil
+            print("[SessionTracker] Failed to persist thumbnail: \(error)")
+            return nil
         }
     }
 
-    private func saveToDisk() {
+    private func saveContext() {
+        guard context.hasChanges else { return }
         do {
-            let data = try JSONEncoder().encode(sessions)
-            try data.write(to: storageURL, options: .atomic)
+            try context.save()
         } catch {
-            print("[SessionTracker] Failed to save sessions: \(error.localizedDescription)")
+            print("[SessionTracker] Failed to save Core Data: \(error)")
         }
     }
 }

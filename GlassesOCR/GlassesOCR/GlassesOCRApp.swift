@@ -1,8 +1,10 @@
 import SwiftUI
+import CoreData
 import MWDATCore   // ✅ Meta SDK
 
 @main
 struct GlassesOCRApp: App {
+    let persistenceController = PersistenceController.shared
 
     init() {
         // Configure Meta Wearables SDK before any other SDK access
@@ -18,6 +20,7 @@ struct GlassesOCRApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .onOpenURL { url in
                     // Handle callback from Meta AI app after registration approval
                     print("[GlassesOCRApp] 📲 Received callback URL: \(url)")
